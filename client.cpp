@@ -42,8 +42,6 @@ int main() {
     cout << "- Awaiting confirmation from the server..." << endl; //line 40
  // recive the welcome message from server
     cout << "- Connection confirmed, you are good to go!" << endl;
-
-
     recv(client, buffer, bufsize, 0);
     int NUMBER_OF_SURVIVORS = atoi(buffer);
     recv(client, buffer, bufsize, 0);
@@ -54,11 +52,9 @@ int main() {
     int i,j, length, count, mostFit;
     float maxFit;
     dna generation[NUMBER_OF_CREATURES];
-//    cout<<NUMBER_OF_SURVIVORS<<" "<<NUMBER_OF_GENOMES<<" "<<NUMBER_OF_CREATURES<<endl;
 // loop to send messages to server
     do {
         for (i = 0; i < NUMBER_OF_CREATURES; i++) {
-
             ssize_t rec = 0;
             do {
                 int res = recv(client, &buffer[rec], sizeof(buffer)-rec, 0);
@@ -67,9 +63,16 @@ int main() {
             generation[i].genes = buffer;
             length = generation[i].genes.length();
             count = 0;
-            for (j = 0; j < length; j++) {
-                if (generation[i].genes[j] == '1') {
-                    count += 1;
+            for (j = 0; j < length * 2 / NUMBER_OF_GENOMES; j++) {
+
+                for (int k = NUMBER_OF_GENOMES/2 - 1; k >= 0; k--) {
+                    int a = 1;
+                    for (int l = 1; l < NUMBER_OF_GENOMES/2-k; l++) {
+                            a*=2;
+                    }
+                    if (generation[i].genes[j*NUMBER_OF_GENOMES/2 + k] == '1') {
+                        count +=a;
+                    }
                 }
             }
             generation[i].fitness = (float)count * (float)NUMBER_OF_GENOMES / (float)length;
@@ -78,7 +81,6 @@ int main() {
             cout << generation[i].genes << endl;
             cout<<generation[i].fitness<<"-------------------------------"<< endl;
         }
-
         for (i = 0; i < NUMBER_OF_SURVIVORS; i++) {
             maxFit = -1.0;
             mostFit = -1;
@@ -89,18 +91,13 @@ int main() {
                 }
             }
             strcpy(buffer, generation[mostFit].genes.c_str());
-
             ssize_t rec = 0;
                 do {
                     int res = send(client, &buffer[rec], bufsize-rec, 0);
                     rec+=res;
                 } while (rec<bufsize);
-
-
             generation[mostFit].fitness = -1.0;    
         }
- //       cout<<endl<<endl;
-
     } while (!isExit);
 
  /* ---------------- CLOSE CALL ------------- */
