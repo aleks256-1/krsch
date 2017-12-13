@@ -152,7 +152,12 @@ string RandomFragmentDeletion(const string creature) {
     string res;
     int length = creature.length() / NUMBER_OF_GENOMES;
     int startPosition = RangedRandomNumber(0, length-1);
-    int fragmentsToRemove = RangedRandomNumber(1, (length - startPosition));
+    int fragmentsToRemove;
+    if ((length - startPosition)/2 > 0) {
+        fragmentsToRemove = RangedRandomNumber(1, (length - startPosition)/2);
+    } else {
+        fragmentsToRemove = 0;
+    }
     if (startPosition + fragmentsToRemove == length && startPosition == 0) {
         fragmentsToRemove--;
     }
@@ -262,17 +267,13 @@ int main() {
     bool isExit = false; // var fo continue infinitly
     struct sockaddr_in server_addr;
     socklen_t size;
-
     cout << "\n- Starting server..." << endl;
-
  /* ---------- ESTABLISHING SOCKET CONNECTION ----------*/
-
     server = socket(AF_INET, SOCK_STREAM, 0);
     if (server < 0) {
         cout << "Error establishing socket ..." << endl;
         exit(-1);
     }
-
     cout << "- Socket server has been created..." << endl;
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htons(INADDR_ANY);
@@ -287,23 +288,14 @@ int main() {
         cout << "- Error binding connection, the socket has already been established..." << endl;
         exit(-1);
     }
-
  /* ------------------ LISTENING CALL ----------------- */
-
     size = sizeof(server_addr);
     cout << "- Looking for clients..." << endl;
     listen(server, 1);
-
  /* ------------------- ACCEPT CALL ------------------ */
-
     client = accept(server, (struct sockaddr *) &server_addr, &size);
-
     if (client < 0)
         cout << "- Error on accepting..." << endl;
-
-
-
-
 //отправляем клиенту данные о модели
     dna firstGeneration[NUMBER_OF_SURVIVORS], nextGeneration[NUMBER_OF_CREATURES];
     strcpy(buffer, to_string(NUMBER_OF_SURVIVORS).c_str());
@@ -312,14 +304,12 @@ int main() {
     send(client, buffer, bufsize, 0);
     strcpy(buffer, to_string(NUMBER_OF_CREATURES).c_str());
     send(client, buffer, bufsize, 0);
-
     int i,j, count = 0;
 //Строим первое поколение
     for (i=0; i<NUMBER_OF_SURVIVORS; i++) {
-        firstGeneration[i].genes = GenerateRandomDna(RangedRandomNumber(10,20) * NUMBER_OF_GENOMES);
+        firstGeneration[i].genes = GenerateRandomDna(RangedRandomNumber(100,200) * NUMBER_OF_GENOMES);
         firstGeneration[i].fitness = 0.0;
     }
-
     while (client > 0) {
  // loop to recive messages from client
         do {
@@ -333,7 +323,6 @@ int main() {
                 nextGeneration[i].fitness = 0.0;
             }
 //100% мутируем повторяющиеся существа
-
             for (i = 0; i < NUMBER_OF_CREATURES; i++) {
                 for (j = i; j < NUMBER_OF_CREATURES; j++) {
                     if (nextGeneration[i].genes == nextGeneration[j].genes) {
@@ -346,7 +335,6 @@ int main() {
                 }
                 
             }
-
 //Мутируем
             int numberOfMutations = (int)(backoff_time.rand() * NUMBER_OF_CREATURES * MUTATED_POPULATION), creature, mutation;
             for (i = 0; i < numberOfMutations; i++) {
@@ -371,23 +359,18 @@ int main() {
                     nextGeneration[secondCreature].genes = individuals.second;
                 }
             }
- 
 //Отправляем поколение клиенту
             for (i = 0; i < NUMBER_OF_CREATURES; i++) {
                 if (nextGeneration[i].genes.length() == 0) {
                     cout<<"a NULL creature #"<<i<<endl;
                 }
-                //cout << nextGeneration[i].genes <<" "<<nextGeneration[i].genes.length()%16<< endl;
                 strcpy(buffer, nextGeneration[i].genes.c_str());
-                
                 ssize_t rec = 0;
                 do {
                     int res = send(client, &buffer[rec], bufsize-rec, 0);
                     rec+=res;
                 } while (rec<bufsize);
             }
-            //cout<<"-------------------------------------------"<<endl;
-
 //Получаем выживших
             for (i = 0; i < NUMBER_OF_SURVIVORS; i++) {
                 ssize_t rec = 0;
@@ -397,10 +380,6 @@ int main() {
                 } while (rec<bufsize);
                 firstGeneration[i].genes = buffer;
             }
-
-            /*for (i = 0; i < NUMBER_OF_SURVIVORS; i++) {
-                cout << firstGeneration[i].genes << endl<<"-------------------------------"<< endl;
-            }*/
             cout<<"done #"<<count<<endl;
             count++;
         } while (!isExit);
@@ -410,7 +389,6 @@ int main() {
         close(client);
         cout << "\nGoodbye..." << endl;
         exit(1);
-
     }
  /* ---------------- CLOSE CALL ------------- */
     close(server);
