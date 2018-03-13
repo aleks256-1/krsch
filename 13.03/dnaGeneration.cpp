@@ -6,6 +6,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <bitset>
+#include <math.h>
 
 #define SUBSTANCE_LENGTH 128
 #define MAX_CREATURE_SIZE 512
@@ -53,6 +54,12 @@ struct genome{
     struct gene *genes;
     int length;
 };
+
+
+float calc_sigma(float x){
+	return 2.164 * (1 / (1 + exp(-x))) - 0.581989;
+}
+
 
 void initCreature(struct creature ** creature){
 	*creature = (struct creature*)malloc(sizeof(struct creature));
@@ -130,6 +137,66 @@ void saveGenome(struct genome * genome){
 	}
 }
 
+void calculateDvForCells(struct creature * creature, struct genome * genome) {
+    int countOfCells = creature->n * creature->n;
+    for(int i = 0; i < countOfCells; i++){
+		for(int j = 0; j < SUBSTANCE_LENGTH; j++){
+			creature->cells[i].dv[j] = 0;
+		}
+	}
+    for (int i = 0; i < countOfCells; i++) {
+        for (int j = 0; j < genome->genes->cond_length; j++) {
+//1 == ">"
+            int delta;
+            if (genome->genes->cond[i].sign == 1) {
+                delta = genome->genes->cond[j].substance - genome->genes->cond[j].threshold;
+            } else {
+                delta = genome->genes->cond[j].threshold - genome->genes->cond[j].substance;
+            }
+            for (int k = 0; k < genome->genes->oper_length; k++) {
+//1 == ">"
+                if (genome->genes->operons[k].sign == 1) {
+                    creature->cells[i].dv[genome->genes->operons[k].substance] += genome->genes->operons[k].rate * calc_sigma(delta);
+                } else {
+                    creature->cells[i].dv[genome->genes->operons[k].substance] -= genome->genes->operons[k].rate * calc_sigma(delta);
+                }
+                if (creature->cells[i].dv[genome->genes->operons[k].substance] > 255) {
+                    creature->cells[i].dv[genome->genes->operons[k].substance] = 255;
+                }
+                if (creature->cells[i].dv[genome->genes->operons[k].substance] < 0) {
+                    creature->cells[i].dv[genome->genes->operons[k].substance] = 0;
+                }
+            }
+        }
+    }
+/*    for (int i = 0; i < countOfCells; i++) {
+        for (int j = 0; j < SUBSTANCE_LENGTH; j++) {
+            cout << creature->cells[i].dv[j] << " ";
+        }
+        cout << "\n";
+    }
+*/
+}
+
+void applyDvForCells(struct creature * creature) {
+    int countOfCells = creature->n * creature->n;
+    for(int i = 0; i < countOfCells; i++){
+		for(int j = 0; j < SUBSTANCE_LENGTH; j++){
+            creature->cells[i].v[j] += creature->cells[i].dv[j];
+            creature->cells[i].dv[j] = 0;
+            if (creature->cells[i].v[j] > 255) {
+                    creature->cells[i].v[j] = 255;
+            }
+            if (creature->cells[i].v[j] < 0) {
+                creature->cells[i].v[j] = 0;
+		    }
+        }
+    }
+}
+
+
+
+
 int main(int argc, char ** argv) {
     struct creature *creature;
     struct genome *genome;
@@ -138,5 +205,8 @@ int main(int argc, char ** argv) {
 
     initCreature(&creature);
     initRandGenome(genome);
-    saveGenome(genome);
+ //   saveGenome(genome);
+
+    calculateDvForCells(creature, genome);
+    applyDvForCells(creature);
 }
