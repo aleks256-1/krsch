@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <bitset>
 #include <math.h>
+#include <stdio.h>
+#include <stdint.h>
+
 
 #define SUBSTANCE_LENGTH 128
 #define MAX_CREATURE_SIZE 512
@@ -16,12 +19,13 @@
 #define MAX_OPERON_LENGTH 32
 #define MAX_COND_VALUE 127
 #define MAX_OPERON_VALUE 127
+
 using namespace std;
 
 
 struct cell{
-	unsigned int v[SUBSTANCE_LENGTH];
-	int dv[SUBSTANCE_LENGTH];
+	float v[SUBSTANCE_LENGTH];
+	float dv[SUBSTANCE_LENGTH];
 };
 
 //v[2], v[3], v[4] -- rgb
@@ -33,7 +37,7 @@ struct creature{
 
 struct operon{
     unsigned char rate : 7;
-	unsigned char sign : 1;
+    unsigned char sign : 1;
     unsigned char substance : 7;
 };
 
@@ -56,6 +60,9 @@ struct genome{
 };
 
 
+
+
+
 float calc_sigma(float x){
 	return 2.164 * (1 / (1 + exp(-x))) - 0.581989;
 }
@@ -68,7 +75,7 @@ void initCreature(struct creature ** creature){
 	for(int i = 0; i < N; i++){
 		for(int j = 0; j < N; j++){
 			for(int k = 0; k < SUBSTANCE_LENGTH; k++){
-				(*creature)->cells[i * N + j].v[k] = (*creature)->cells[i * N + j].dv[k] = 0;
+				(*creature)->cells[i * N + j].v[k] = (*creature)->cells[i * N + j].dv[k] = 255;
 			}
 		}
 	}
@@ -194,7 +201,68 @@ void applyDvForCells(struct creature * creature) {
     }
 }
 
+void diff(struct creature * creature) {
+    int n = creature->n;
+    for (int i = 0; i < creature->n; i++) {
+        for (int j = 0; j < creature->n; j++) {
+            for (int k = 0; k < SUBSTANCE_LENGTH; k++) {
+                if (int delta = j+1 < creature->n) {
+                    creature->cells[i * n + delta].v[k] += 0.05 * creature->cells[i * n + j].v[k];
+                }
+                if (int delta = j-1 >= 0) {
+                    creature->cells[i * n + delta].v[k] += 0.05 * creature->cells[i * n + j].v[k];
+                }
+                if (int delta = i+1 < creature->n) {
+                    creature->cells[delta * n + j].v[k] += 0.05 * creature->cells[i * n + j].v[k];
+                    if (int delta2 = j+1 < creature->n) {
+                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
+                    }
+                    if (int delta2 = j-1 >= 0) {
+                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
+                    }
+                }
+                if (int delta = i-1 >=0) {
+                    creature->cells[delta * n + j].v[k] += 0.05 * creature->cells[i * n + j].v[k];
+                    if (int delta2 = j+1 < creature->n) {
+                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
+                    }
+                    if (int delta2 = j-1 >= 0) {
+                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
+                    }
+                }
+                creature->cells[i * n + j].v[k] *= 0.7;
+            }
+        } 
+    }
+}
 
+void printCreature(struct creature *creature) {
+    int countOfCells = creature->n * creature->n;
+    for (int i = 0; i < countOfCells; i++) {
+        cout<<"cell #"<<i<<":\n";
+        for (int j = 0; j < SUBSTANCE_LENGTH; j++) {
+            cout<<creature->cells[i].v[j] << " ";
+        }
+        cout<<"\n";
+    }
+}
+
+struct creature* grow(struct creature * creature){
+	struct creature *new_creature = (struct creature*)malloc(sizeof(struct creature));
+	int new_size = 2 * creature->n;
+	new_creature->n = new_size;
+	new_creature->cells = (struct cell*)calloc(new_creature->n * new_creature->n, sizeof(struct cell));
+	for(int i = 0; i < new_size; i++){
+		for(int j = 0; j < new_size; j++){
+			for(int k = 0; k < SUBSTANCE_LENGTH; k++){
+				new_creature->cells[i * new_size + j].v[k] = creature->cells[(i/2) * creature->n + j/2].v[k];
+				new_creature->cells[i * new_size + j].dv[k] = creature->cells[(i/2) * creature->n + j/2].dv[k];
+			}
+		}
+	}
+	free(creature);
+	return new_creature;
+}
 
 
 int main(int argc, char ** argv) {
@@ -207,6 +275,17 @@ int main(int argc, char ** argv) {
     initRandGenome(genome);
  //   saveGenome(genome);
 
-    calculateDvForCells(creature, genome);
-    applyDvForCells(creature);
+    int step = 0;
+    while(creature->n < MAX_CREATURE_SIZE) {
+        calculateDvForCells(creature, genome);
+        applyDvForCells(creature);
+        diff(creature); 
+        if (step % 2 == 0) {
+            creature = grow(creature);
+        }
+        step++;
+    }
+    printCreature(creature);
+    free(genome);
+    free(creature);
 }
