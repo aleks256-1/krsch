@@ -108,40 +108,28 @@ void initCreature(struct creature ** creature){
 void load(struct genome * genome) {
     FILE * fp;
     fp = fopen("genome.txt", "r");
+    int i;
     char line[256];
 
-    genome->length = 1;
+    genome->length = 0;
     while(fgets(line, sizeof(line), fp)) {
-        if (line[0] != '[') {
+        if (line[0] == '[') {
             genome->length++;
         }
     }
-    rewind(fp);
     genome->genes = (struct gene*)calloc(genome->length, sizeof(struct gene));
-    int flag = 0;
-    int i = 0;
-    while (fgets(line, sizeof(line), fp)) {
-        if (line[0] == '[') {
-            flag ++;
-        } else {
-            genome->genes[i].cond_length = flag;
-            genome->genes[i].oper_length = flag;
-            flag = 0;
-            i++;
-        }
-    }
-
     for (i = 0; i < genome->length; i++) {
+        genome->genes[i].cond_length = 1;
+        genome->genes[i].oper_length = 1;
         genome->genes[i].cond = (struct cond*)calloc(genome->genes[i].cond_length, sizeof(struct cond));
 		genome->genes[i].operons = (struct operon*)calloc(genome->genes[i].oper_length, sizeof(struct operon));
-	
     }
-    rewind(fp);
+
     int current_gene = 0;
     int current_cond_oper = 0;
+    rewind(fp);
     while(fgets(line, sizeof(line), fp)) {
         if (line[0] != '[') {
-            current_gene++;
             continue;
         }
         i = 1;
@@ -165,7 +153,7 @@ void load(struct genome * genome) {
             temp += line[i] - '0';
             i++;
         }
-        genome->genes[current_gene].cond[current_cond_oper].threshold = temp*2;
+        genome->genes[current_gene].cond[current_cond_oper].threshold = temp * 2;
         i+=4;
         temp = 0;
         while (line[i] != ']') {
@@ -175,61 +163,23 @@ void load(struct genome * genome) {
         }
         genome->genes[current_gene].operons[current_cond_oper].substance = temp;
         i+=2;
-        if (line[i] == '+') {
+        if (line[i] == '-') {
             genome->genes[current_gene].operons[current_cond_oper].sign = 1;
         } else {
             genome->genes[current_gene].operons[current_cond_oper].sign = 0;
         }
         i+=2;
         temp = 0;
-        while (line[i] != ']') {
+        while (line[i] != '\n') {
             temp *= 10;
             temp += line[i] - '0';
             i++;
         }
         genome->genes[current_gene].operons[current_cond_oper].rate = temp;
+        current_gene++;
     }
 
     fclose(fp);
-}
-
-
-void loadGenome(struct genome * genome) {
-    genome->length = 1;
-    genome->genes = (struct gene*)calloc(genome->length, sizeof(struct gene));
-    for (int i = 0; i < genome->length; i++) {
-        genome->genes[i].cond_length = 1;
-        genome->genes[i].oper_length = 1;
-        genome->genes[i].cond = (struct cond*)calloc(genome->genes[i].cond_length, sizeof(struct cond));
-        genome->genes[i].operons = (struct operon*)calloc(genome->genes[i].oper_length, sizeof(struct operon));
-    }
-
-
-    genome->genes[0].cond[0].sign = 0;
-    genome->genes[0].cond[1].sign = 1;
-    genome->genes[0].cond[2].sign = 1;
-    ////////////////////////  
-    genome->genes[0].cond[0].substance = 20;
-    genome->genes[0].cond[1].substance = 0;
-    genome->genes[0].cond[2].substance = 5; 
-  /////////////////////////
-    genome->genes[0].cond[0].threshold = 127;
-    genome->genes[0].cond[1].threshold = 0;
-    genome->genes[0].cond[2].threshold = 30;
-    
-
-
-    genome->genes[0].operons[0].sign = 1;
-    genome->genes[0].operons[1].sign = 1;
-    genome->genes[0].operons[2].sign = 0;
-////////////////////////////
-    genome->genes[0].operons[0].substance = 4;
-    genome->genes[0].operons[1].substance = 5;
-    genome->genes[0].operons[2].substance = 4;
-//////////////////////////////////
-    genome->genes[0].operons[0].rate = 30;
-    genome->genes[0].operons[1].rate = 15;
-    genome->genes[0].operons[2].rate = 30;
 }
 
 void initRandGenome(struct genome * genome){
@@ -287,56 +237,22 @@ void saveGenome(struct genome * genome){
     }
 }
 
-void calculateDvForCells(struct creature * creature, struct genome * genome) {
-    int countOfCells = creature->n * creature->n;
-    for(int i = 0; i < countOfCells; i++){
-		for(int j = 0; j < SUBSTANCE_LENGTH; j++){
-			creature->cells[i].dv[j] = 0;
-		}
-	}
-    for (int i = 0; i < countOfCells; i++) {
-        for (int j = 0; j < genome->genes->cond_length; j++) {
-//1 == ">"
-            int delta;
-            if (genome->genes->cond[j].sign == 1) {
-                delta = genome->genes->cond[j].substance - genome->genes->cond[j].threshold;
-            } else {
-                delta = genome->genes->cond[j].threshold - genome->genes->cond[j].substance;
-            }
-            for (int k = 0; k < genome->genes->oper_length; k++) {
-//1 == ">"
-                if (genome->genes->operons[k].sign == 1) {
-                    creature->cells[i].dv[genome->genes->operons[k].substance] += genome->genes->operons[k].rate * calc_sigma(delta);
-                } else {
-                    creature->cells[i].dv[genome->genes->operons[k].substance] -= genome->genes->operons[k].rate * calc_sigma(delta);
-                }
-                if (creature->cells[i].dv[genome->genes->operons[k].substance] > 255) {
-                    creature->cells[i].dv[genome->genes->operons[k].substance] = 255;
-                }
-                if (creature->cells[i].dv[genome->genes->operons[k].substance] < 0) {
-                    creature->cells[i].dv[genome->genes->operons[k].substance] = 0;
-                }
-            }
-        }
-    }
-}
-
-
 void calculateDvForCells_v2(struct creature * creature, struct genome * genome) {
     int countOfCells = creature->n * creature->n;
     for(int i = 0; i < countOfCells; i++){ 
         for (int j = 0; j < genome->length; j++) {
-            float * delta = (float*)malloc(genome->genes[j].cond_length * sizeof(float)); 
+            int * delta = (int*)malloc(genome->genes[j].cond_length * sizeof(int)); 
             for (int k = 0; k < genome->genes[j].cond_length; k++) {
                 delta[k] = genome->genes[j].cond[k].sign 
                     ? creature->cells[i].v[genome->genes[j].cond[j].substance] + genome->genes[j].cond[j].threshold
                     : genome->genes[j].cond[j].threshold - creature->cells[i].v[genome->genes[j].cond[j].substance];
+                    cout << genome->genes[j].cond[j].threshold << " " << creature->cells[i].v[genome->genes[j].cond[j].substance] << " " <<i <<"delta: " << j << " " << delta[k] << '\n';
             }
             for (int k = 0; k < genome->genes[j].oper_length; k++) {
                 for (int p = 0; p < genome->genes[j].cond_length; p++) {
                     genome->genes[j].operons[k].sign 
-                        ? creature->cells[i].dv[genome->genes[j].operons[k].substance] += (genome->genes[j].operons[k].rate * calc_sigma(delta[p]))
-                        : creature->cells[i].dv[genome->genes[j].operons[k].substance] -= (genome->genes[j].operons[k].rate * calc_sigma(delta[p]));
+                        ? creature->cells[i].dv[genome->genes[j].operons[k].substance] -= (genome->genes[j].operons[k].rate * calc_sigma(delta[p]))
+                        : creature->cells[i].dv[genome->genes[j].operons[k].substance] += (genome->genes[j].operons[k].rate * calc_sigma(delta[p]));
                 }
             }
             free(delta);
@@ -359,41 +275,6 @@ void applyDvForCells(struct creature * creature) {
 				}
 				creature->cells[i].v[j] += creature->cells[i].dv[j];
         }
-    }
-}
-
-void diff(struct creature * creature) {
-    int n = creature->n;
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            for (int k = 0; k < SUBSTANCE_LENGTH; k++) {
-                if (int delta = j+1 < n) {
-                    creature->cells[i * n + delta].v[k] += 0.05 * creature->cells[i * n + j].v[k];
-                }
-                if (int delta = j-1 >= 0) {
-                    creature->cells[i * n + delta].v[k] += 0.05 * creature->cells[i * n + j].v[k];
-                }
-                if (int delta = i+1 < creature->n) {
-                    creature->cells[delta * n + j].v[k] += 0.05 * creature->cells[i * n + j].v[k];
-                    if (int delta2 = j+1 < creature->n) {
-                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
-                    }
-                    if (int delta2 = j-1 >= 0) {
-                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
-                    }
-                }
-                if (int delta = i-1 >=0) {
-                    creature->cells[delta * n + j].v[k] += 0.05 * creature->cells[i * n + j].v[k];
-                    if (int delta2 = j+1 < creature->n) {
-                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
-                    }
-                    if (int delta2 = j-1 >= 0) {
-                        creature->cells[delta * n + delta2].v[k] += 0.025 * creature->cells[i * n + j].v[k];
-                    }
-                }
-                creature->cells[i * n + j].v[k] *= 0.7;
-            }
-        } 
     }
 }
 
@@ -477,7 +358,7 @@ void applyDiff(struct creature * creature){
 void printCreature(struct creature *creature) {
     int countOfCells = creature->n * creature->n;
     for (int i = 0; i < countOfCells; i++) {
-        cout<<"cell #"<<i<<":\n";
+        cout<<"cell #(v):"<<i<<":\n";
         for (int j = 0; j < SUBSTANCE_LENGTH; j++) {
             cout<<creature->cells[i].v[j] << " ";
         }
@@ -487,7 +368,7 @@ void printCreature(struct creature *creature) {
 void printCreature_dv(struct creature *creature) {
     int countOfCells = creature->n * creature->n;
     for (int i = 0; i < countOfCells; i++) {
-        cout<<"cell #"<<i<<":\n";
+        cout<<"cell #(dv):"<<i<<":\n";
         for (int j = 0; j < SUBSTANCE_LENGTH; j++) {
             cout<<creature->cells[i].dv[j] << " ";
         }
@@ -603,8 +484,6 @@ int main() {
     load(genome);
     initCreature(&creature);
 //    initRandGenome(genome);
-    load(genome);
-//    loadGenome(genome);
     init_blur_matrix(&matrix);
  //   saveGenome(genome);
     char* imageNames[FILENAME_MAX];
@@ -628,20 +507,15 @@ int main() {
     imageNames[17] = (char*)"18.bmp";
     int step = 0;
     int i = 0;
-    while(creature->n < 64) {
-        cout<<"start"<<'\n';
+    while(creature->n < 128) {
+        cout<<"############################ "<< step << " ############################\ncurrent creature\n\n";
         printCreature(creature);
-        //        calculateDvForCells(creature, genome);
         calculateDvForCells_v2(creature, genome);
-        cout << "-----------------------------------------------------";
+        cout << "-----------------------------------------------------\n";
         printCreature_dv(creature);
-        cout << "-----------------------------------------------------";
-        applyDvForCells(creature);
-//        diff(creature);
-    cout<<"cont"<<'\n'; 
-    printCreature(creature);
-    
-    diff_v2(creature, matrix);
+        cout << "-----------------------------------------------------\n";
+        applyDvForCells(creature); 
+        diff_v2(creature, matrix);
         applyDiff(creature);
         if (step % 2 == 0) {
             createImage(creature, (char*)imageNames[i]);
