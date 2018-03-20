@@ -1,147 +1,167 @@
+#include <fstream>
 #include <malloc.h>
 #include "creature.h"
+#include <iostream>
 #include "main.h"
 #include "rdev.h"
 #include "genome.h"
 #include "embriogenesis.h"
 #include "bmpgen.h"
+#include <bitset>
 #include <iostream>
-
-#define START_GENERATION 10
-#define IDEAL 10
-#define NEXT_GENERATION 100
+#include <vector>
 
 using namespace std;
 
-
-
-void initImageNames(char ** imageNames) {
-    imageNames[0] = (char*)"1.bmp";
-    imageNames[1] = (char*)"2.bmp";
-    imageNames[2] = (char*)"3.bmp";
-    imageNames[3] = (char*)"4.bmp";
-    imageNames[4] = (char*)"5.bmp";
-    imageNames[5] = (char*)"6.bmp";
-    imageNames[6] = (char*)"7.bmp";
-    imageNames[7] = (char*)"8.bmp";
-    imageNames[8] = (char*)"9.bmp";
-    imageNames[9] = (char*)"10.bmp";
-    imageNames[10] = (char*)"11.bmp";
-    imageNames[11] = (char*)"12.bmp";
-    imageNames[12] = (char*)"13.bmp";
-    imageNames[13] = (char*)"14.bmp";
-    imageNames[14] = (char*)"15.bmp";
-    imageNames[15] = (char*)"16.bmp";
-    imageNames[16] = (char*)"17.bmp";
-    imageNames[17] = (char*)"18.bmp";
+uint16_t * cross(uint16_t * a, int aSize, uint16_t * b, int bSize) {
+    vector<vector<int>> matrixOfEntries;
+    uint16_t * c;
+    matrixOfEntries.resize(aSize + 1);
+    for(int i = 0; i <= static_cast<int>(aSize); i++)
+        matrixOfEntries[i].resize(bSize + 1);
+    for(int i = static_cast<int>(aSize) - 1; i >= 0; i--) {
+        for(int j = static_cast<int>(bSize) - 1; j >= 0; j--) {
+            if(a[i] == b[j]) {
+                matrixOfEntries[i][j] = 1 + matrixOfEntries[i+1][j+1];
+            } else {
+                matrixOfEntries[i][j] = max(matrixOfEntries[i+1][j], matrixOfEntries[i][j+1]);                
+            }
+        }
+    }
+    vector<uint16_t> res, fragment1, fragment2;
+    fragment1.clear();
+    fragment2.clear();
+    res.clear();
+    for(int i = 0, j = 0; i < static_cast<int>(aSize) || j < static_cast<int>(bSize); ) {
+//        cout<<"f1 "<<fragment1<<endl<<"f2 "<<fragment2<<endl<<"res "<<res<<endl;
+        cout << "1\n";
+        if(i < static_cast<int>(aSize) && j < static_cast<int>(bSize) && a[i] == b[i]) {
+            cout << "2\n";
+            if (fragment2.size()==0) {
+                for (int k = 0; k < fragment1.size(); k++) {
+                    res.push_back(fragment1[k]);
+                }
+            } else if (fragment1.size() == 0) {
+                for (int k = 0; k < fragment2.size(); k++) {
+                    res.push_back(fragment2[k]);
+                }
+            } else  if (RangedRandomNumber(0,50) < 25) {
+                for (int k = 0; k < fragment1.size(); k++) {
+                    res.push_back(fragment1[k]);
+                }
+            } else {
+                for (int k = 0; k < fragment2.size(); k++) {
+                    res.push_back(fragment2[k]);
+                }
+            }
+            for (int k = 0; k < fragment1.size(); k++) {
+                cout << fragment1[k] << ' ';
+            }
+            cout << '\n';
+            fragment1.clear();
+            fragment2.clear();
+            res.push_back(a[i]);
+            i++;
+            j++;
+        } else {
+            cout << "3\n";
+            if(i < static_cast<int>(aSize) && matrixOfEntries[i][j] == matrixOfEntries[i+1][j]) {
+                cout << "4\n";
+                cout << "f1 " << a[i] << '\n';
+                fragment1.push_back(a[i]);
+                i++;
+            } else if (j < static_cast<int>(bSize)) {
+                fragment2.push_back(b[j]);                
+                cout <<"f2 " << fragment2[fragment2.size()-1] << '\n';
+                j++;
+            }          
+        }
+    }
+    cout << "res.size = " << res.size() << '\n';
+    if (fragment2.size()==0) {
+        for (int k = 0; k < fragment1.size(); k++) {
+            res.push_back(fragment1[k]);
+        }
+    } else if (fragment1.size() == 0) {
+        for (int k = 0; k < fragment2.size(); k++) {
+            res.push_back(fragment2[k]);
+        }
+    } else  if (RangedRandomNumber(0,50) < 25) {
+        for (int k = 0; k < fragment1.size(); k++) {
+            res.push_back(fragment1[k]);
+        }
+    } else {
+        for (int k = 0; k < fragment2.size(); k++) {
+            res.push_back(fragment2[k]);
+        }
+    }
+    cout << "res.size = " << res.size() << '\n';
+    
+    c = (uint16_t*)malloc(res.size()*sizeof(uint16_t));
+    for (int i = 0; i < res.size(); i++) {
+        c[i] = res[i];
+    }
+    cout << c[0];
+    return c;
 }
 
-void crossParents(struct genome * first, struct genome * second) {
-
-}
-
-void copyGenome(struct genome * first, struct genome * second) {
-
-}
 
 int main() {
-    struct creature *firstGeneration[START_GENERATION+1]; //#1000 - IdealCreature
-    struct creature *nextGeneration[NEXT_GENERATION];
-    struct matrix * matrix;
-    struct genome *firstGenerationGenome[START_GENERATION + 1]; //#1000 - IdealCreature  
-    struct genome *nextGenerationGenome[NEXT_GENERATION];
+    struct genome * genome;
+    struct genome * genome1;
+    struct genome * genome2;
+    genome = (struct genome*)malloc(sizeof(struct genome));
+    genome1 = (struct genome*)malloc(sizeof(struct genome));
+    genome2 = (struct genome*)malloc(sizeof(struct genome));
+
+    initRandGenome(genome);
+    initRandGenome(genome1);
     
-    init_blur_matrix(&matrix);
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////  INITIALIZING FIRST GENERATION ARRAYS  ///////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-    for (int i = 0; i < START_GENERATION + 1; i++) {                                        ////// 
-        initCreature(&firstGeneration[i]);                                                  //////
-        cout << "creature # " << i << " initialized\n";                                     //////
-    }                                                                                       //////
-    for (int i = 1; i < START_GENERATION + 1; i++) {                                        //////
-        for (int j = 0; j < firstGeneration[i]->n * firstGeneration[i]->n; j++) {           //////
-            for (int k = 0; k < SUBSTANCE_LENGTH; k++) {                                    //////
-                firstGeneration[i]->cells[j].v[k] = firstGeneration[0]->cells[j].v[k];      //////
-            }                                                                               //////
-        }                                                                                   ////// 
-    }                                                                                       ////// 
-    for (int i = 0; i < START_GENERATION + 1; i++) {                                        //////
-        firstGenerationGenome[i] = (struct genome *)malloc(sizeof(struct genome));          //////
-        initRandGenome(firstGenerationGenome[i]);                                           //////
-        cout << "genome # " << i << " initialized\n";                                       //////
-    }                                                                                       //////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////  Growing up IdealCreature  /////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-    int step = 0;                                                                           //////
-    int i = 0;                                                                              //////
-    char* imageNames[FILENAME_MAX];                                                         //////
-    initImageNames(imageNames);                                                             //////
-    while(firstGeneration[IDEAL]->n < MAX_CREATURE_SIZE) {                                  //////
-        calculateDvForCells_v2(firstGeneration[IDEAL], firstGenerationGenome[IDEAL]);       ////// 
-        applyDvForCells(firstGeneration[IDEAL]);                                            //////
-        diff_v2(firstGeneration[IDEAL], matrix);                                            //////
-        applyDiff(firstGeneration[IDEAL]);                                                  //////
-        if (step % GROW_SIZE == 0) {                                                        //////
-            firstGeneration[IDEAL] = grow(firstGeneration[IDEAL]);                          //////
-            createImage(firstGeneration[IDEAL], (char*)imageNames[i]);                      //////
-            i++;                                                                            //////
-        }                                                                                   //////
-        step++;                                                                             //////
-        cout << step << '\n';                                                               //////
-    }                                                                                       //////
-    createImage(firstGeneration[IDEAL], (char*)"IDEAL.bmp");                                //////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////  INITIALIZING NEXT GENERATION ARRAYS  ///////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-    for (int i = 0; i < NEXT_GENERATION; i++) {                                             ////// 
-        initCreature(&nextGeneration[i]);                                                   //////
-        cout << "creature # " << i << " initialized\n";                                     //////
-    }                                                                                       //////
-    for (int i = 0; i < NEXT_GENERATION; i++) {                                             //////
-        for (int j = 0; j < nextGeneration[i]->n * nextGeneration[i]->n; j++) {             //////
-            for (int k = 0; k < SUBSTANCE_LENGTH; k++) {                                    //////
-                nextGeneration[i]->cells[j].v[k] = firstGeneration[0]->cells[j].v[k];       //////
-            }                                                                               //////
-        }                                                                                   ////// 
-    }                                                                                       //////
-    for (int i = 0; i < START_GENERATION; i++) {                                            //////
-        nextGenerationGenome[i] = (struct genome *)malloc(sizeof(struct genome));           //////
-        copyGenome(firstGenerationGenome[i], nextGenerationGenome[i]);                      //////
-        cout << "genome # " << i << " initialized\n";                                       //////
-    }                                                                                       //////
-    for (int i = START_GENERATION; i < NEXT_GENERATION; i++) {                              //////
-        nextGenerationGenome[i] = (struct genome *)malloc(sizeof(struct genome));           //////
-        cout << "genome # " << i << " initialized\n";                                       //////
-    }                                                                                       //////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
     
-///////////////////////////////////  CROSSING RANDOM GENOMES /////////////////////////////////////
-    for (int i = START_GENERATION; i < NEXT_GENERATION; i++) {    
-        crossParents(firstGenerationGenome[RangedRandomNumber(0,999)], firstGenerationGenome[RangedRandomNumber(0,999)]); 
-    }
+/*    ifstream file("genome.txt");
+    string temp;
+    getline(file, temp);
+    cout << temp.length();
+    cout << "--------------------------\n";
+    bitset<16> x(temp[0]);
+    cout << x << '\n';*/
+
+    saveGenome(genome);    
+    FILE * fp;
+    fp = fopen("genome.txt", "rb");
+    fseek(fp,0,SEEK_END);
+    int size = (ftell(fp))/2;
+	rewind(fp);
+	uint16_t* buffer = (uint16_t*)malloc(size * sizeof(uint16_t));
+    fread(buffer, sizeof(uint16_t), size, fp);
+    fclose(fp);
+
+    saveGenome(genome1);
+    fp = fopen("genome.txt", "rb");
+    fseek(fp,0,SEEK_END);
+    int size1 = (ftell(fp))/2;
+	rewind(fp);
+	uint16_t* buffer1 = (uint16_t*)malloc(size1 * sizeof(uint16_t));
+    fread(buffer1, sizeof(uint16_t), size1, fp);
+    fclose(fp);
+
+    printGenome(genome);
+    printGenome(genome1);
+
+    uint16_t* buffer2;
+    buffer2 = cross(buffer, size, buffer1, size1);
+    cout << buffer2[0];
 
 
 
+    free(buffer);
+    free(buffer1);
+    free(buffer2);
+
+    free(genome1);
+    free(genome);
 
 
-
-
-
-    for (int i = 0; i < NEXT_GENERATION; i++) {                                             
-        free(nextGeneration[i]);                                          
-    }   
-    for (int i = 0; i < START_GENERATION + 1; i++) {
-        free(firstGenerationGenome[i]);
-        free(firstGeneration[i]);
-    }
+    return 0;
 }
