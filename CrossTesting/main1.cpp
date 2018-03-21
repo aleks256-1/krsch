@@ -6,6 +6,8 @@
 #include "embriogenesis.h"
 #include "bmpgen.h"
 #include <iostream>
+#include "cross.h"
+#include "mutations.h"
 
 #define START_GENERATION 10
 #define IDEAL 10
@@ -34,14 +36,6 @@ void initImageNames(char ** imageNames) {
     imageNames[15] = (char*)"16.bmp";
     imageNames[16] = (char*)"17.bmp";
     imageNames[17] = (char*)"18.bmp";
-}
-
-void crossParents(struct genome * first, struct genome * second) {
-
-}
-
-void copyGenome(struct genome * first, struct genome * second) {
-
 }
 
 int main() {
@@ -78,24 +72,24 @@ int main() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////  Growing up IdealCreature  /////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
-    int step = 0;                                                                           //////
-    int i = 0;                                                                              //////
-    char* imageNames[FILENAME_MAX];                                                         //////
-    initImageNames(imageNames);                                                             //////
-    while(firstGeneration[IDEAL]->n < MAX_CREATURE_SIZE) {                                  //////
-        calculateDvForCells_v2(firstGeneration[IDEAL], firstGenerationGenome[IDEAL]);       ////// 
-        applyDvForCells(firstGeneration[IDEAL]);                                            //////
-        diff_v2(firstGeneration[IDEAL], matrix);                                            //////
-        applyDiff(firstGeneration[IDEAL]);                                                  //////
-        if (step % GROW_SIZE == 0) {                                                        //////
-            firstGeneration[IDEAL] = grow(firstGeneration[IDEAL]);                          //////
-            createImage(firstGeneration[IDEAL], (char*)imageNames[i]);                      //////
-            i++;                                                                            //////
-        }                                                                                   //////
-        step++;                                                                             //////
-        cout << step << '\n';                                                               //////
-    }                                                                                       //////
-    createImage(firstGeneration[IDEAL], (char*)"IDEAL.bmp");                                //////
+//    int step = 0;                                                                           //////
+//    int i = 0;                                                                              //////
+//    char* imageNames[FILENAME_MAX];                                                         //////
+ //   initImageNames(imageNames);                                                             //////
+  //  while(firstGeneration[IDEAL]->n < MAX_CREATURE_SIZE) {                                  //////
+   //     calculateDvForCells_v2(firstGeneration[IDEAL], firstGenerationGenome[IDEAL]);       ////// 
+    //    applyDvForCells(firstGeneration[IDEAL]);                                            //////
+   //     diff_v2(firstGeneration[IDEAL], matrix);                                            //////
+    //    applyDiff(firstGeneration[IDEAL]);                                                  //////
+    //    if (step % GROW_SIZE == 0) {                                                        //////
+    //        firstGeneration[IDEAL] = grow(firstGeneration[IDEAL]);                          //////
+    //        createImage(firstGeneration[IDEAL], (char*)imageNames[i]);                      //////
+    //        i++;                                                                            //////
+    //    }                                                                                   //////
+    //    step++;                                                                             //////
+    //    cout << step << '\n';                                                               //////
+    //}                                                                                       //////
+    //createImage(firstGeneration[IDEAL], (char*)"IDEAL.bmp");                                //////
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -104,7 +98,6 @@ int main() {
 //////////////////////////////////////////////////////////////////////////////////////////////////
     for (int i = 0; i < NEXT_GENERATION; i++) {                                             ////// 
         initCreature(&nextGeneration[i]);                                                   //////
-        cout << "creature # " << i << " initialized\n";                                     //////
     }                                                                                       //////
     for (int i = 0; i < NEXT_GENERATION; i++) {                                             //////
         for (int j = 0; j < nextGeneration[i]->n * nextGeneration[i]->n; j++) {             //////
@@ -124,13 +117,48 @@ int main() {
     }                                                                                       //////
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
-    
+
+//////////////////////////////////////////////////////////////////////////////////////////////////  
 ///////////////////////////////////  CROSSING RANDOM GENOMES /////////////////////////////////////
-    for (int i = START_GENERATION; i < NEXT_GENERATION; i++) {    
-        crossParents(firstGenerationGenome[RangedRandomNumber(0,999)], firstGenerationGenome[RangedRandomNumber(0,999)]); 
-    }
+//////////////////////////////////////////////////////////////////////////////////////////////////
+    for (int i = START_GENERATION; i < NEXT_GENERATION; i++) {                              //////                       
+        cross(firstGenerationGenome[RangedRandomNumber(0,START_GENERATION - 1)], 
+              firstGenerationGenome[RangedRandomNumber(0,START_GENERATION - 1)], 
+              nextGenerationGenome[i]); 
+    }                                                                                       //////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////          MUTATIONS            /////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+    int numberOfMutations = RangedRandomNumber(NEXT_GENERATION/2, NEXT_GENERATION);         //////
+    for (int i = 0; i < numberOfMutations; i++) {                                           //////
+        int mutation = RangedRandomNumber(0,100);                                           //////
+        int creature = RangedRandomNumber(0, NEXT_GENERATION - 1);                          //////
+        if (mutation < 14) {                                                                ////// 
+            ChangeRandomBits(nextGenerationGenome[creature]);                               //////
+        } else if (mutation < 28) {                                 
+            printGenome(nextGenerationGenome[creature]);
+            RandomFragmentDeletion(nextGenerationGenome[creature]);                         //////
+            cout << "---------------------\n";
+            printGenome(nextGenerationGenome[creature]);
+        } else if (mutation < 42) {                                                         //////
+//            RandomFragmentInsetrion(nextGenerationGenome[creature]);                        //////
+        } else if (mutation < 56) {                                                         //////    
+//            RandomFragmentDuplicate(nextGenerationGenome[creature]);                        //////
+        } else if (mutation < 70) {                                                         //////   
+//            RandomFragmentMove(nextGenerationGenome[creature]);                             //////
+        } else if (mutation < 84) {                                                         //////      
+//            RandomFragmentCopy(nextGenerationGenome[creature]);                             //////
+        } else if (mutation < 100) {                                                        //////       
+            int secondCreature = RangedRandomNumber(0, NEXT_GENERATION - 1);                //////         
+//            ExchangeDnaFragments(nextGenerationGenome[creature], 
+//                                 nextGenerationGenome[secondCreature]);
+        }                                                                                   //////
+    }                                                                                       //////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
