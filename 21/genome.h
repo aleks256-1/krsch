@@ -49,5 +49,7 @@ void loadGenome(struct genome * genome);
 void initRandGenome(struct genome * genome);
 void saveGenome(struct genome * genome);
 void copyGenome(struct genome * genome1, struct genome * genome2);
+void uint16genome_to_genome(struct uint16_genome * genome1, struct genome * genome2);
+void genome_to_uint16genome(struct uint16_genome * genome1, struct genome * genome2);
 
 #endif
