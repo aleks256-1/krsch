@@ -211,7 +211,7 @@ int main(int argc, char ** argv) {
                 g += abs(creature[i]->cells[j].v[GREEN_COMPONENT] - idealCreature->cells[j].v[GREEN_COMPONENT]);
                 b += abs(creature[i]->cells[j].v[BLUE_COMPONENT] - idealCreature->cells[j].v[BLUE_COMPONENT]);
             }
-            genome[i]->similarity = (float)(r + g + b);
+            genome[i]->similarity = (float)((r + g + b)/size);
             cout << "similarity of " << i << " is " << genome[i]->similarity << '\n';
         }
 ////////////////////////////////////////////////////////////////////////////////////////////////// 
