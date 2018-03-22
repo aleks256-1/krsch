@@ -179,7 +179,7 @@ void genome_to_uint16genome(struct uint16_genome * genome1, struct genome * geno
 }
 
 void uint16genome_to_genome(struct uint16_genome * genome1, struct genome * genome2) {
-    bool oper_flag = false;
+    bool flag = false;
 	genome2->length = 0;
 	int i = 0;
 	while (i < genome1->size && get_flag(genome1->genes[i])) {
@@ -188,16 +188,20 @@ void uint16genome_to_genome(struct uint16_genome * genome1, struct genome * geno
 	int startPos = i;
 	while (i < genome1->size) {
 		while (i < genome1->size && !get_flag(genome1->genes[i])) {
-			i++;
+            i++;
+            flag = true;
 		}
 		while (i < genome1->size && get_flag(genome1->genes[i])) {
-			i++;
-		}
+            i++;
+            flag = false;
+        }
+        if (flag == true) {
+            continue;
+        }
 		genome2->length += 1;
-	}
-	genome2->length -= 1;
+    }
+//	genome2->length -= 1;
 	genome2->genes = (struct gene*)calloc(genome2->length, sizeof(struct gene));
-	
 	int pos = 0;
 	i = startPos;
 	for (pos = 0; pos < genome2->length; pos++) {
