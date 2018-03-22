@@ -57,11 +57,13 @@ void ExchangeDnaFragments(struct uint16_genome * genome1, struct uint16_genome *
         buffer2[i] = genome2->genes[j];
     }
     genome1->size = newSize1;
+    free(genome1->genes);
     genome1->genes = (uint16_t*)malloc(genome1->size * sizeof(uint16_t));
     for (int i = 0; i < genome1->size; i++) {
         genome1->genes[i] = buffer1[i];
     }  
     genome2->size = newSize2;
+    free(genome2->genes);
     genome2->genes = (uint16_t*)malloc(genome2->size * sizeof(uint16_t));
     for (int i = 0; i < genome2->size; i++) {
         genome2->genes[i] = buffer2[i];
@@ -87,6 +89,7 @@ void RandomFragmentCopy(struct uint16_genome * genome) {
         buffer[i] = genome->genes[i];
     }
     genome->size = newSize;
+    free(genome->genes);
     genome->genes = (uint16_t*)malloc(genome->size * sizeof(uint16_t));
     for (int i = 0; i < newPos; i++) {
         genome->genes[i] = buffer[i];
@@ -143,6 +146,7 @@ void RandomFragmentDuplicate (struct uint16_genome * genome) {
         buffer[i] = genome->genes[j];
     }
     genome->size = newSize;
+    free(genome->genes);
     genome->genes = (uint16_t*)malloc(genome->size * sizeof(uint16_t));
     for (int i = 0; i < genome->size; i++) {
         genome->genes[i] = buffer[i];
@@ -170,6 +174,7 @@ void RandomFragmentInsetrion(struct uint16_genome * genome) {
     }
 
     genome->size = newSize;
+    free(genome->genes);
     genome->genes = (uint16_t*)malloc(genome->size * sizeof(uint16_t));
     for (int i = 0; i < genome->size; i++) {
         genome->genes[i] = buffer[i];
@@ -191,6 +196,7 @@ void RandomFragmentDeletion(struct uint16_genome * genome) {
         buffer[j] = genome->genes[i];
     }
     genome->size = newSize;
+    free(genome->genes);
     genome->genes = (uint16_t *)malloc(newSize * sizeof(uint16_t));
     for (int i = 0; i < newSize; i++) {
         genome->genes[i] = buffer[i];
