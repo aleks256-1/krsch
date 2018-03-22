@@ -139,12 +139,110 @@ unsigned char get_sign(uint16_t val){
 }
 
 unsigned char get_threshold(uint16_t val){
-	return (val & 0x3f00) >> 7;
+	return (val & 0x3f80) >> 7;
 }
 
 unsigned char get_rate(uint16_t val){
-	return (val & 0x3f00) >> 6;
+	return (val & 0x3f80) >> 7;
 }
+
+void genome_to_uint16genome(struct uint16_genome * genome1, struct genome * genome2) {
+    int i, j;
+    int size = 0;
+    for (int i = 0; i < genome2->length; i++) {
+        size += genome2->genes[i].cond_length + genome2->genes[i].oper_length;
+    }
+    cout << "size = " << size << ' ';
+    genome1->size = size;
+    genome1->genes = (uint16_t *)malloc(genome1->size * sizeof(uint16_t));
+    int k = 0;
+	for(i = 0; i < genome2->length; i++) {
+		for(j = 0; j < genome2->genes[i].cond_length; j++){
+			genome1->genes[k] = 0;
+			genome1->genes[k] |= ((uint16_t)genome2->genes[i].cond[j].sign) << 14;
+			genome1->genes[k] |= (uint16_t)genome2->genes[i].cond[j].substance;
+            genome1->genes[k] |= ((uint16_t)genome2->genes[i].cond[j].threshold) << 7;
+            genome1->genes[k] &= 0x7fff;
+            bitset<16> x(genome1->genes[j]);
+            k++;
+		}
+		for(j = 0; j < genome2->genes[i].oper_length; j++){
+			genome1->genes[k] = 0;
+			genome1->genes[k] |= 0x8000;
+			genome1->genes[k] |= ((uint16_t)genome2->genes[i].operons[j].sign) << 14;
+			genome1->genes[k] |= (uint16_t)genome2->genes[i].operons[j].substance;
+			genome1->genes[k] |= ((uint16_t)genome2->genes[i].operons[j].rate) << 7;
+            bitset<16> x(genome1->genes[k]);
+            k++;
+        }
+	}
+}
+
+void uint16genome_to_genome(struct uint16_genome * genome1, struct genome * genome2) {
+    bool oper_flag = false;
+	genome2->length = 0;
+	int i = 0;
+	while (i < genome1->size && get_flag(genome1->genes[i])) {
+			i++;
+	}
+	int startPos = i;
+	while (i < genome1->size) {
+		while (i < genome1->size && !get_flag(genome1->genes[i])) {
+			i++;
+		}
+		while (i < genome1->size && get_flag(genome1->genes[i])) {
+			i++;
+		}
+		genome2->length += 1;
+	}
+	genome2->length -= 1;
+	genome2->genes = (struct gene*)calloc(genome2->length, sizeof(struct gene));
+	
+	int pos = 0;
+	i = startPos;
+	for (pos = 0; pos < genome2->length; pos++) {
+		genome2->genes[pos].oper_length = 0;
+		genome2->genes[pos].cond_length = 0;
+		while (i < genome1->size && !get_flag(genome1->genes[i])) {
+			i++;
+			genome2->genes[pos].cond_length += 1;
+		}
+		while (i < genome1->size && get_flag(genome1->genes[i])) {
+			i++;
+			genome2->genes[pos].oper_length += 1;
+		}
+		
+	}
+	for(i = 0; i < genome2->length; i++){
+		genome2->genes[i].cond = (struct cond*)calloc(genome2->genes[i].cond_length, sizeof(struct cond));
+		genome2->genes[i].operons = (struct operon*)calloc(genome2->genes[i].oper_length, sizeof(struct operon));
+	}
+
+	pos = 0;
+	int cur_cond = 0;
+	int cur_oper = 0;
+	i = startPos;
+	while (pos < genome2->length){
+		while(!get_flag(genome1->genes[i])) {
+			genome2->genes[pos].cond[cur_cond].substance = get_substance(genome1->genes[i]);
+			genome2->genes[pos].cond[cur_cond].sign = get_sign(genome1->genes[i]);
+			genome2->genes[pos].cond[cur_cond].threshold = get_threshold(genome1->genes[i]);
+			cur_cond++;
+			i++;
+		}
+		while(get_flag(genome1->genes[i])) {
+			genome2->genes[pos].operons[cur_oper].substance = get_substance(genome1->genes[i]);
+			genome2->genes[pos].operons[cur_oper].sign = get_sign(genome1->genes[i]);
+			genome2->genes[pos].operons[cur_oper].rate = get_rate(genome1->genes[i]);
+			cur_oper++;
+			i++;
+		}
+		pos++;
+		cur_cond = 0;
+		cur_oper = 0;
+	}
+}
+
 
 void loadGenome(struct genome * genome){
     FILE *fp;
