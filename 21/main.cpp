@@ -8,17 +8,18 @@
 #include <iostream>
 #include "cross.h"
 #include "mutations.h"
-
+#include <bitset>
 
 using namespace std;
 
 int main() {
-    uint16_genome * firstGeneration[START_POPULATION], * nextGeneration[NEXT_GENERATION_POPULATION];
+    struct uint16_genome * firstGeneration[START_POPULATION], * nextGeneration[NEXT_GENERATION_POPULATION];
+    struct genome * genome = (struct genome *)malloc(sizeof(struct genome));
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////  INITIALIZING FIRST GENERATION ARRAYS  ///////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
     for (int i = 0; i < START_POPULATION; i++) {
-        firstGeneration[i] = (uint16_genome *)malloc(sizeof(uint16_genome));
+        firstGeneration[i] = (struct uint16_genome *)malloc(sizeof(struct uint16_genome));
         initRandGenome_uint16(firstGeneration[i]);
     }                                                  
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,11 +29,11 @@ int main() {
 ////////////////////////////  INITIALIZING NEXT GENERATION ARRAYS  ///////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
     for (int i = 0; i < START_POPULATION; i++) {
-        nextGeneration[i] = (uint16_genome *)malloc(sizeof(uint16_genome));
+        nextGeneration[i] = (struct uint16_genome *)malloc(sizeof(struct uint16_genome));
         copyGenome_uint16(firstGeneration[i], nextGeneration[i]);
     }
     for (int i = START_POPULATION; i < NEXT_GENERATION_POPULATION; i++) {
-        nextGeneration[i] = (uint16_genome *)malloc(sizeof(uint16_genome)); 
+        nextGeneration[i] = (struct uint16_genome *)malloc(sizeof(struct uint16_genome)); 
         crossGenome_uint16(firstGeneration[RangedRandomNumber(0, START_POPULATION - 1)], 
                             firstGeneration[RangedRandomNumber(0, START_POPULATION - 1)],
                             nextGeneration[i]);
