@@ -1,8 +1,3 @@
-#include <stdio.h> 
-#include <stdlib.h> 
-#include <errno.h> 
-#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros 
-#include <iostream>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -13,380 +8,208 @@
 #include <bitset>
 #include <unistd.h>
 
+
 #include "cross.h"
 #include "mutations.h"
 #include "creature.h"
 #include "main.h"
-#include "rdev.h"
 #include "genome.h"
 #include "embriogenesis.h"
 #include "bmpgen.h"
+#include <cmath>
 
-using namespace std;    
+int IMAGE_WIDTH;
+int IMAGE_HEIGHT;
 
-#define TRUE   1 
-#define FALSE  0 
-#define PORT 8080 
+unsigned char* readBMP(char* filename)
+{
+    int i;
+    FILE* f = fopen(filename, "rb");
+    unsigned char info[54];
+    fread(info, sizeof(unsigned char), 54, f); // read the 54-byte header
 
-void copy_uint16_genome(struct uint16_genome * genome1, struct uint16_genome * genome2) {
-    free(genome1);
-    genome1 = (struct uint16_genome *)malloc(sizeof(struct uint16_genome));
-    genome1->size = genome2->size;
-    genome1->genes = (uint16_t *)malloc(genome1->size * sizeof(uint16_t));
-    for (int i = 0; i < genome1->size; i++) {
-        genome1[i] = genome2[i];
+    // extract image height and width from header
+    IMAGE_WIDTH = *(int*)&info[18];
+    IMAGE_HEIGHT = *(int*)&info[22];
+
+    int size = 3 * IMAGE_WIDTH * IMAGE_HEIGHT;
+    cout << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << '\n';
+    unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
+    fread(data, sizeof(unsigned char), size, f); // read the rest of the data at once
+    fclose(f);
+
+    for(i = 0; i < size; i += 3)
+    {
+            unsigned char tmp = data[i];
+            data[i] = data[i+2];
+            data[i+2] = tmp;
     }
+
+    return data;
 }
 
+using namespace std;
 
-int main(int argc , char *argv[])  
-{  
-    int opt = TRUE;  
-    int master_socket , addrlen , new_socket , client_socket[30] , 
-          max_clients = 30 , activity, i , valread , sd;  
-    int max_sd;  
-    struct sockaddr_in address;  
-        
+
+int main(int argc, char ** argv) {
+    /* -------------- INITIALIZING VARIABLES -------------- */
+    int client; // socket file descriptors
+    int portNum = 8080; // port number (same that server)
     int bufsize = 65536; // buffer size
     char buffer[bufsize]; // buffer to transmit
-        
-    //set of socket descriptors 
-    fd_set readfds;  
-        
-    //a message 
-    char *message = "ECHO Daemon v1.0 \r\n";  
-    
-    //initialise all client_socket[] to 0 so not checked 
-    for (i = 0; i < max_clients; i++)  
-    {  
-        client_socket[i] = 0;  
-    }  
-        
-    //create a master socket 
-    if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0)  
-    {  
-        perror("socket failed");  
-        exit(EXIT_FAILURE);  
-    }  
-    
-    //set master socket to allow multiple connections , 
-    //this is just a good habit, it will work without this 
-    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, 
-          sizeof(opt)) < 0 )  
-    {  
-        perror("setsockopt");  
-        exit(EXIT_FAILURE);  
-    }  
-    
-    //type of socket created 
-    address.sin_family = AF_INET;  
-    address.sin_addr.s_addr = INADDR_ANY;  
-    address.sin_port = htons( PORT );  
-        
-    //bind the socket to localhost port 8888 
-    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0)  
-    {  
-        perror("bind failed");  
-        exit(EXIT_FAILURE);  
-    }  
-    printf("Listener on port %d \n", PORT);  
-        
-    //try to specify maximum of 3 pending connections for the master socket 
-    if (listen(master_socket, 3) < 0)  
-    {  
-        perror("listen");  
-        exit(EXIT_FAILURE);  
-    }  
-        
-    //accept the incoming connection 
-    addrlen = sizeof(address);  
-    puts("Waiting for connections ...");  
-        
-    struct matrix * matrix;
-    init_blur_matrix(&matrix);
-    
-    struct uint16_genome * firstGeneration[START_POPULATION], * nextGeneration[NEXT_GENERATION_POPULATION];
-    for (int i = 0; i < START_POPULATION; i++) {
-        firstGeneration[i] = (struct uint16_genome *)malloc(sizeof(struct uint16_genome));
-        initRandGenome_uint16(firstGeneration[i]);
-    }                                                  
-    for (int i = 0; i < NEXT_GENERATION_POPULATION; i++) {
-        nextGeneration[i] = (struct uint16_genome *)malloc(sizeof(struct uint16_genome));
+    char ip[] = "195.19.58.174"; // Server IP
+    bool isExit = false; // var fo continue infinitly
+     /* Structure describing an Internet socket address. */
+    struct sockaddr_in server_addr;
+    cout << "\n- Starting client..." << endl;
+     /* ---------- ESTABLISHING SOCKET CONNECTION ----------*/
+    client = socket(AF_INET, SOCK_STREAM, 0);
+    if (client < 0) {
+        cout << "\n-Error establishing socket..." << endl;
+        exit(-1);
     }
+    cout << "\n- Socket client has been created..." << endl;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(portNum);
+    inet_pton(AF_INET, ip, &server_addr.sin_addr);
+ /* ---------- CONNECTING THE SOCKET ---------- */
+    if (connect(client, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0)
+        cout << "- Connection to the server port number: " << portNum << endl;
+    cout << "- Awaiting confirmation from the server..." << endl; //line 40
+ // recive the welcome message from server
+    cout << "- Connection confirmed, you are good to go!" << endl;
     ssize_t rec;
-    int count = 0, res;
-    int creature_data[128];
+    int res, i, step;
+    struct uint16_genome * nextGeneration;
+    struct genome * genome;
+    struct creature * creature = (struct creature *)malloc(sizeof(struct creature));
+    struct matrix * matrix;
+    nextGeneration = (struct uint16_genome *)malloc(sizeof(struct uint16_genome));
+    genome = (struct genome *)malloc(sizeof(struct genome));
+    init_blur_matrix(&matrix);
+    struct creature * MyCreature;
+    MyCreature = (struct creature*)malloc(sizeof(struct creature));
+    initCreature(MyCreature);
     for (int i = 0; i < 128; i++) {
-        creature_data[i] = RangedRandomNumber(0, 255);
+        rec = 0;
+        do {
+            int res = recv(client, &buffer[rec], bufsize-rec, 0);
+            rec+=res;
+        } while (rec<bufsize);   
+        for (int j = 0; j < N * N; j++) {
+            MyCreature->cells[j].v[i] = MyCreature->cells[j].dv[i] = atoi(buffer);
+        }
     }
-
-
-    while(TRUE)  
-    {  
-        //clear the socket set 
-        FD_ZERO(&readfds);  
-        //add master socket to set 
-        FD_SET(master_socket, &readfds);  
-        max_sd = master_socket;  
-        //add child sockets to set 
-        for ( i = 0 ; i < max_clients ; i++)  
-        {  
-            //socket descriptor 
-            sd = client_socket[i];  
-                
-            //if valid socket descriptor then add to read list 
-            if(sd > 0)  
-                FD_SET( sd , &readfds);  
-                
-            //highest file descriptor number, need it for the select function 
-            if(sd > max_sd)  
-                max_sd = sd;  
-        }  
-        //wait for an activity on one of the sockets , timeout is NULL , 
-        //so wait indefinitely 
-        activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);  
-        if ((activity < 0) && (errno!=EINTR))  
-        {  
-            printf("select error");  
-        }  
-            
-        //If something happened on the master socket , 
-        //then its an incoming connection 
-        if (FD_ISSET(master_socket, &readfds))  
-        {  
-            if ((new_socket = accept(master_socket, 
-                    (struct sockaddr *)&address, (socklen_t*)&addrlen))<0)  
-            {  
-                perror("accept");  
-                exit(EXIT_FAILURE);  
-            }  
-            
-            //inform user of socket number - used in send and receive commands 
-            printf("New connection , socket fd is %d , ip is : %s , port : %d\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs
-                  (address.sin_port));  
-            
-            for (int i = 0; i < 128; i++) {
-                strcpy(buffer, to_string(creature_data[i]).c_str());
-                cout << creature_data[i] << ' ';
-                rec = 0;
-                do {                        
-                    int res = send(new_socket, &buffer[rec], bufsize-rec, 0);
-                    rec+=res;
-                } while (rec<bufsize);   
-            }
-            cout << '\n';
-            //add new socket to array of sockets 
-            for (i = 0; i < max_clients; i++)  
-            {  
-                //if position is empty 
-                if( client_socket[i] == 0 )  
-                {  
-                    client_socket[i] = new_socket;  
-                    printf("Adding to list of sockets as %d\n" , i);  
-                    FD_SET( client_socket[i] , &readfds);                 
-                    
-                    break;  
-                }  
-            }  
-        }  
-
-        //else its some IO operation on some other socket
-        for (i = 0; i < max_clients; i++)  
-        {  
-            sd = client_socket[i];  
-                
-            if (FD_ISSET( sd , &readfds))  
-            {  
-                //incoming message
-                 
-                rec = 0;
-                do {
-                    int res = recv(client_socket[i], &buffer[rec], bufsize-rec, 0);
-                    rec+=res;
-                } while (rec<bufsize);
-                
-            }  
-        }  
-        int cur_clients = 0;
-        for (i = 0; i < max_clients; i++) {
-            if (client_socket[i] > 0) {
-                cur_clients++;
-            }
-        }
-        for (int i = 0; i < START_POPULATION; i++) {
-            if (nextGeneration[i]->genes) {
-                free(nextGeneration[i]->genes);
-            }
-            nextGeneration[i] = (struct uint16_genome *)malloc(sizeof(struct uint16_genome));
-            copyGenome_uint16(firstGeneration[i], nextGeneration[i]);
-        }
-        for (int i = START_POPULATION; i < NEXT_GENERATION_POPULATION; i++) {
-            if (nextGeneration[i]->genes) {
-                free(nextGeneration[i]->genes);
-            }
-            crossGenome_uint16(firstGeneration[RangedRandomNumber(0, START_POPULATION - 1)], 
-                                firstGeneration[RangedRandomNumber(0, START_POPULATION - 1)],
-                                nextGeneration[i]);
-        }
-
-
-        int numberOfMutations = RangedRandomNumber(NEXT_GENERATION_POPULATION/2, NEXT_GENERATION_POPULATION); 
-        for (int i = 0; i < numberOfMutations; i++) {                                           
-            int mutation = RangedRandomNumber(0,100);                                          
-            int creature = RangedRandomNumber(0, NEXT_GENERATION_POPULATION - 1);                        
-            if (mutation < 13) {                     
-                ChangeRandomBits(nextGeneration[creature]);                           
-            } else if (mutation < 25) {    
-                RandomFragmentDeletion(nextGeneration[creature]);                          
-            } else if (mutation < 38) {                                                         
-                RandomFragmentInsetrion(nextGeneration[creature]);                         
-            } else if (mutation < 50) {    
-                RandomFragmentDuplicate(nextGeneration[creature]);                    
-            } else if (mutation < 63) {                                    
-                RandomFragmentMove(nextGeneration[creature]);                            
-            } else if (mutation < 75) {  
-                RandomFragmentCopy(nextGeneration[creature]);                            
-            } else if (mutation < 88) {                                                       
-                int secondCreature = RangedRandomNumber(0, NEXT_GENERATION_POPULATION - 1);
-                ExchangeDnaFragments(nextGeneration[creature], nextGeneration[secondCreature]);
-            } else if (mutation < 100) { 
-                RandomFragmentReverse(nextGeneration[creature]);
-            }                                                                                   
-        }
-
-
-        int pos = 0;
-        for (int i = 0; i < NEXT_GENERATION_POPULATION; i++) {
-            strcpy(buffer, to_string(nextGeneration[i]->size).c_str());
+    int genomeNumber;
+    unsigned char * image;
+    //    readBitmapImage((unsigned char //24*)image, 225, 225, (char *)("IdealImage.bmp"));
+    image = readBMP((char*)"ideal.bmp");
+    generateBitmapImage(image, IMAGE_HEIGHT, IMAGE_WIDTH, (char*)"generated.bmp");
+    write(client, buffer, bufsize);
+    int count = 0;
+    do {
+        rec = 0;
+        do {
+            int res = recv(client, &buffer[rec], bufsize-rec, 0);
+            rec+=res;
+        } while (rec<bufsize);
+        if (atoi(buffer) == 123456789) {
             rec = 0;
+            cout << "//////////////////////////////////////\n             done generation # " << count << "\n//////////////////////////////////////\n";
+            count ++;
             do {
-                int res = send(client_socket[pos], &buffer[rec], bufsize-rec, 0);
+                int res = send(client, &buffer[rec], bufsize-rec, 0);
                 rec+=res;
             } while (rec<bufsize);
-            strcpy(buffer, to_string(i).c_str());
+        } else {
+            nextGeneration->size = atoi(buffer);
             rec = 0;
             do {
-                int res = send(client_socket[pos], &buffer[rec], bufsize-rec, 0);
+                res = recv(client, &buffer[rec], bufsize - rec, 0);
+                rec += res;
+            } while (rec < bufsize);
+            genomeNumber = atoi(buffer);
+            if(nextGeneration->genes) {
+                free(nextGeneration->genes);
+            } 
+            nextGeneration->genes = (uint16_t*)malloc(nextGeneration->size * sizeof(uint16_t));
+            for (int j = 0; j < nextGeneration->size; j++) {
+                rec = 0;
+                do {
+                    res = recv(client, &buffer[rec], bufsize - rec, 0);
+                    rec += res;
+                } while (rec < bufsize);
+                nextGeneration->genes[j] = atoi(buffer);
+            } 
+            nextGeneration->similarity = 0.0;      
+
+            cout << "Growing up creature # " << genomeNumber << "\n";
+            if (creature) {
+                free(creature->cells);
+                free(creature);
+            }
+            creature = (struct creature*)malloc(sizeof(struct creature));
+            initCreature(creature);
+            int size = creature->n * creature->n;
+            for (int j = 0; j < size; j++) {
+                for (int k = 0; k < SUBSTANCE_LENGTH; k++) {
+                    creature->cells[j].v[k] = creature->cells[j].dv[k] = MyCreature->cells[j].v[k];
+                }
+            }
+            if(genome) {
+                free(genome->genes);
+                free(genome);
+            }
+            genome = (struct genome*)malloc(sizeof(struct genome));
+            uint16genome_to_genome(nextGeneration, genome);
+            step = 0;
+            while(creature->n < MAX_CREATURE_SIZE) {
+//                cout << "Size: " << creature->n << " x " << creature->n << '\n';
+                calculateDvForCells_v2(creature, genome);
+                applyDvForCells(creature);
+                diff_v2(creature, matrix);
+                applyDiff(creature);
+                if (step % 2 == 0) {
+                    creature = grow(creature);
+                }
+                step++;
+            }
+
+            float r = 0, g = 0, b = 0;
+            size = creature->n * creature->n;
+            for (int j = 0; j < creature->n; j++) {
+                for (int k = 0; k < creature->n; k++) {
+                    r += abs(creature->cells[j*creature->n+k].v[RED_COMPONENT] - (float)image[3 * (j * IMAGE_WIDTH + k)]);
+                    g += abs(creature->cells[j*creature->n+k].v[GREEN_COMPONENT] - (float)image[3 * (j * IMAGE_WIDTH + k) + 1]);
+                    b += abs(creature->cells[j*creature->n+k].v[BLUE_COMPONENT] - (float)image[3 * (j * IMAGE_WIDTH + k) + 2]);
+                }
+            }
+            genome->similarity = (r + g + b) / size;
+//            cout << " similarity is " << genome->similarity << '\n';
+            strcpy(buffer, to_string(genomeNumber).c_str());
+            rec = 0;
+            do {
+                int res = send(client, &buffer[rec], bufsize-rec, 0);
                 rec+=res;
             } while (rec<bufsize);
+            strcpy(buffer, to_string(genome->similarity).c_str());
+            rec = 0;
+            do {
+                int res = send(client, &buffer[rec], bufsize-rec, 0);
+                rec+=res;
+            } while (rec<bufsize);    
+//            char filename[FILENAME_MAX];
+//            sprintf(filename, "c%d.bmp", genomeNumber);
+//            createImage(creature, filename);
 
-            for (int j = 0; j < nextGeneration[i]->size; j++) {
-                strcpy(buffer, to_string(nextGeneration[i]->genes[j]).c_str());
-                rec = 0;
-                do {
-                    int res = send(client_socket[pos], &buffer[rec], bufsize-rec, 0);
-                    rec+=res;
-                } while (rec<bufsize);
-            }
-
-
-            pos++;
-            if (pos == cur_clients || i == NEXT_GENERATION_POPULATION - 1) {
-                for (int j = 0; j < pos; j++) {
-                    rec = 0;
-                    do {
-                        int res = recv(client_socket[j], &buffer[rec], bufsize-rec, 0);
-                        rec+=res;
-                    } while (rec<bufsize);
-                    if (atoi(buffer) == 123456789) {
-                        rec = 0;
-                        do {
-                            int res = recv(client_socket[j], &buffer[rec], bufsize-rec, 0);
-                            rec+=res;
-                        } while (rec<bufsize);       
-                    }
-                    int genomeNumber = atoi(buffer);
-
-                    rec = 0;
-                    do {
-                        int res = recv(client_socket[j], &buffer[rec], bufsize-rec, 0);
-                        rec+=res;
-                    } while (rec<bufsize);
-                    nextGeneration[genomeNumber]->similarity = atof(buffer);                    
-                }
-                pos = 0;
-            }
         }
-        cout << '\n';
+    } while (!isExit);
 
+    free(nextGeneration);
+    free(genome);
 
-        for (int i = 0; i < START_POPULATION; i++) {
-            int mostSimilar = 0; 
-            int val = 1001;
-            for (int j = 0; j < NEXT_GENERATION_POPULATION; j++) {
-                if (nextGeneration[j]->similarity < val) {
-                    val = nextGeneration[j]->similarity;
-                    mostSimilar = j;
-                }
-            }
-            free(firstGeneration[i]->genes);
-            firstGeneration[i]->size = nextGeneration[mostSimilar]->size;
-            firstGeneration[i]->genes = (uint16_t *)malloc(firstGeneration[i]->size * sizeof(uint16_t));
-            for (int j = 0; j < firstGeneration[i]->size; j++) {
-                firstGeneration[i]->genes[j] = nextGeneration[mostSimilar]->genes[j];
-            }
-            cout << "genome # " << mostSimilar << " is most similar " << nextGeneration[mostSimilar]->similarity << '\n';
-            nextGeneration[mostSimilar]->similarity = 1001;
-            
-        }
-
-
-        for (int i = 0; i < max_clients; i++) {
-
-            if (client_socket[i] > 0) {
-                strcpy(buffer, to_string(123456789).c_str());
-                rec = 0;
-                do {
-                    int res = send(client_socket[i], &buffer[rec], bufsize-rec, 0);
-                    rec+=res;
-                } while (rec<bufsize);            }
-        }
-
-        struct genome * imageGenome = (struct genome * )malloc(sizeof(struct genome));
-        uint16genome_to_genome(firstGeneration[0], imageGenome);
-        struct creature * imageCreature = (struct creature *)malloc(sizeof(struct creature));
-        initCreature(imageCreature);
-        for (int i = 0; i < 128; i++) { 
-            for (int j = 0; j < N * N; j++) {
-                imageCreature->cells[j].v[i] = imageCreature->cells[j].dv[i] = creature_data[i];
-            }
-        }
-        int step = 0;
-        while(imageCreature->n < MAX_CREATURE_SIZE) {
-            calculateDvForCells_v2(imageCreature, imageGenome);
-            applyDvForCells(imageCreature);
-            diff_v2(imageCreature, matrix);
-            applyDiff(imageCreature);
-            if (step % 2 == 0) {
-                imageCreature = grow(imageCreature);
-            }
-            step++;
-        }
-
-        char filename[FILENAME_MAX];
-        sprintf(filename, "c%d.bmp", count);
-        createImage(imageCreature, filename);
-    
-
-        cout << "//////////////////////////\n      done generation # " << count<< "//////////////////////////\n";
-        count++;
-
-    }  
-    
-    
-    for (int i = 0; i < NEXT_GENERATION_POPULATION; i++) {
-        if (nextGeneration[i]) {
-            free(nextGeneration[i]->genes);
-            free(nextGeneration[i]);
-        }
-    }
-
-    for (int i = 0; i < START_POPULATION; i++) {
-        if (firstGeneration[i]) {
-            free(firstGeneration[i]->genes);
-            free(firstGeneration[i]);
-        }
-    }
-
-    return 0;  
-}  
+ /* ---------------- CLOSE CALL ------------- */
+    cout << "\nConnection terminated.\n";
+    close(client);
+    return 0;
+}
